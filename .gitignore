@@ -162,3 +162,6 @@ cython_debug/
 # Dataset stuff
 .zip
 dataset/
+
+# Cache and other stuff
+runs/*
