@@ -28,8 +28,8 @@ def decode_detection(path):
     with open(path) as fd:
         for line in fd:
             elem = line.split(' ')
-            labels.append([int(elem[0]), float(elem[1]), float(elem[2]), float(elem[3]), float(elem[4])])
-    return torch.tensor(labels)
+            labels.append(torch.tensor([float(elem[0]), float(elem[1]), float(elem[2]), float(elem[3]), float(elem[4])], dtype=torch.float32))
+    return labels
 
 class InvalidArgument(ValueError):
     def __init__(self, msg, *args: object) -> None:
