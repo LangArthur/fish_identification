@@ -1,9 +1,12 @@
+#!/usr/bin/env python3
 import torch
 import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib import patches
-from ultralytics import YOLO
+
+# from ultralytics import YOLO
 from src.dataset import DeepFishDataset
+
 
 def plot_img(ds, indexes):
     for i in indexes:
@@ -13,11 +16,10 @@ def plot_img(ds, indexes):
         for label in labels:
             x, y, width, height = label[1], label[2], label[3], label[4]
             print(x, y)
-            rect = patches.Rectangle(
-                (x, y), width, height
-            )
+            rect = patches.Rectangle((x, y), width, height)
             a.add_patch(rect)
         plt.show()
+
 
 def main():
     # print(torch.cuda.is_available())

@@ -4,32 +4,54 @@ import pandas as pd
 import torch
 from torch.utils.data import Dataset
 from torchvision.io import decode_image
+import torchvision.transforms as transforms
+from PIL import Image
 
-# Function used to reorganise 
+
+# Function used to reorganise
 def create_my_deep_fish():
     original_path = "dataset/Deepfish"
     dest_path = "dataset/my_deep_fish"
     for entry in os.scandir(original_path):
         if entry.is_dir() and entry.name != "Nagative_samples":
             for folder in ["train", "valid"]:
-                path = original_path + '/' + entry.name + '/' + folder
+                path = original_path + "/" + entry.name + "/" + folder
                 print(path)
                 for file in os.scandir(path):
                     _, ext = os.path.splitext(file.path)
                     if ext == ".txt":
-                        shutil.copy(path + '/' + file.name, dest_path + "/labels/" + folder + "/" + file.name)
+                        shutil.copy(
+                            path + "/" + file.name,
+                            dest_path + "/labels/" + folder + "/" + file.name,
+                        )
                     elif ext == ".jpg":
-                        shutil.copy(path + '/' + file.name, dest_path + "/images/" + folder + "/" + file.name)
+                        shutil.copy(
+                            path + "/" + file.name,
+                            dest_path + "/images/" + folder + "/" + file.name,
+                        )
                     else:
                         print("Unexpected extension " + ext + ": ignoring file")
+
 
 def decode_detection(path):
     labels = []
     with open(path) as fd:
         for line in fd:
-            elem = line.split(' ')
-            labels.append(torch.tensor([float(elem[0]), float(elem[1]), float(elem[2]), float(elem[3]), float(elem[4])], dtype=torch.float32))
+            elem = line.split(" ")
+            labels.append(
+                torch.tensor(
+                    [
+                        float(elem[0]),
+                        float(elem[1]),
+                        float(elem[2]),
+                        float(elem[3]),
+                        float(elem[4]),
+                    ],
+                    dtype=torch.float32,
+                )
+            )
     return labels
+
 
 class InvalidArgument(ValueError):
     def __init__(self, msg, *args: object) -> None:
@@ -38,9 +60,10 @@ class InvalidArgument(ValueError):
 
     def __str__(self) -> str:
         return self.msg + super().__str__()
-    
+
+
 class DeepFishDataset(Dataset):
-    def __init__(self, label_dir, img_dir, transform=None, target_transform=None): 
+    def __init__(self, label_dir, img_dir, transform=None, target_transform=None):
         super().__init__()
 
         self.filenames = [img.name.removesuffix(".jpg") for img in os.scandir(img_dir)]
@@ -55,10 +78,12 @@ class DeepFishDataset(Dataset):
 
     def __len__(self):
         return self.len
-    
+
     def __getitem__(self, index):
         img_path = os.path.join(self.img_dir, self.filenames[index] + ".jpg")
-        img = decode_image(img_path)
+        raw_img = Image.open(img_path)
+        transform = transforms.Compose([transforms.PILToTensor()])
+        img = transform(raw_img)
         label_path = os.path.join(self.label_dir, self.filenames[index] + ".txt")
         label = decode_detection(label_path)
         if self.transform:
