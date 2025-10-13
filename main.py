@@ -4,8 +4,9 @@ import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib import patches
 
-# from ultralytics import YOLO
-from src.dataset import DeepFishDataset
+from ultralytics import YOLO
+from src.dataset import DeepFishDataset, DatasetType
+from torch.utils.data import DataLoader
 
 
 def plot_img(ds, indexes):
@@ -25,20 +26,37 @@ def main():
     # print(torch.cuda.is_available())
 
     print(plt.get_backend())
-    ds = DeepFishDataset("dataset/my_deep_fish/labels", "dataset/my_deep_fish/images")
+    train_ds = DeepFishDataset(
+        DatasetType.TRAIN, "dataset/my_deep_fish/labels", "dataset/my_deep_fish/images"
+    )
+    test_ds = DeepFishDataset(
+        DatasetType.VALID, "dataset/my_deep_fish/labels", "dataset/my_deep_fish/images"
+    )
 
-    print("dataset size: {}".format(len(ds)))
-    img, _ = ds[0]
+    print("dataset size: {}".format(len(train_ds)))
+    img, _ = train_ds[0]
     print(img.shape)
 
-    plot_img(ds, [0])
+    train_dataloader = DataLoader(train_ds, batch_size=4, shuffle=True)
+    test_dataloader = DataLoader(test_ds, batch_size=4, shuffle=True)
 
-    # model = YOLO('yolov8n.pt')  # Load YOLOv8 Nano pretrained weights
-    # model.train(data='yolo.yaml',  # Path to YAML config
-    #         epochs=5,                  # Number of epochs
-    #         imgsz=1920,                  # Image size
-    #         batch=16,                   # Batch size
-    #         device=0)                   # GPU device index
+    train_features, train_labels = next(iter(train_dataloader))
+
+    print(f"Feature batch shape: {train_features.size()}")
+    print(f"Labels batch shape: {train_labels.size()}")
+    img = train_features[0].squeeze()
+    label = train_labels[0]
+    plt.imshow(img, cmap="gray")
+    plt.show()
+    print(f"Label: {label}")
+    # model = YOLO("yolov8n.pt")  # Load YOLOv8 Nano pretrained weights
+    # model.train(
+    #     data="yolo.yaml",  # Path to YAML config
+    #     epochs=5,  # Number of epochs
+    #     imgsz=1920,  # Image size
+    #     batch=16,  # Batch size
+    #     device=0,
+    # )  # GPU device index
 
 
 if __name__ == "__main__":

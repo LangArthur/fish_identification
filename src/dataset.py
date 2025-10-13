@@ -1,14 +1,14 @@
 import os
 import shutil
-import pandas as pd
 import torch
+from enum import Enum
 from torch.utils.data import Dataset
-from torchvision.io import decode_image
 import torchvision.transforms as transforms
 from PIL import Image
 
 
-# Function used to reorganise
+# Generate my_deep_fish dataset from the deepfish one.
+# My_deep_fish is only a reorganisation of the deepfish one.
 def create_my_deep_fish():
     original_path = "dataset/Deepfish"
     dest_path = "dataset/my_deep_fish"
@@ -62,13 +62,24 @@ class InvalidArgument(ValueError):
         return self.msg + super().__str__()
 
 
+class DatasetType(Enum):
+    TRAIN = 0
+    VALID = 1
+
+
 class DeepFishDataset(Dataset):
-    def __init__(self, label_dir, img_dir, transform=None, target_transform=None):
+    def __init__(self, type, label_dir, img_dir, transform=None, target_transform=None):
         super().__init__()
 
-        self.filenames = [img.name.removesuffix(".jpg") for img in os.scandir(img_dir)]
+        self.type_folder = "train" if type == DatasetType.TRAIN else "valid"
+        self.filenames = [
+            img.name.removesuffix(".jpg")
+            for img in os.scandir(os.path.join(img_dir, self.type_folder))
+        ]
         ds_len = len(self.filenames)
-        if ds_len != len([_ for _ in os.scandir(label_dir)]):
+        if ds_len != len(
+            [_ for _ in os.scandir(os.path.join(img_dir, self.type_folder))]
+        ):
             raise InvalidArgument("Mismatch of label and images")
         self.len = ds_len
         self.label_dir = label_dir
@@ -80,11 +91,15 @@ class DeepFishDataset(Dataset):
         return self.len
 
     def __getitem__(self, index):
-        img_path = os.path.join(self.img_dir, self.filenames[index] + ".jpg")
+        img_path = os.path.join(
+            self.img_dir, self.type_folder, self.filenames[index] + ".jpg"
+        )
         raw_img = Image.open(img_path)
         transform = transforms.Compose([transforms.PILToTensor()])
         img = transform(raw_img)
-        label_path = os.path.join(self.label_dir, self.filenames[index] + ".txt")
+        label_path = os.path.join(
+            self.label_dir, self.type_folder, self.filenames[index] + ".txt"
+        )
         label = decode_detection(label_path)
         if self.transform:
             img = self.transform(img)
