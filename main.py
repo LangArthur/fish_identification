@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 from matplotlib import patches
 
 from ultralytics import YOLO
-from src.dataset import DeepFishDataset, DatasetType
+from src.data.dataset import DeepFishDataset, DatasetSplit
 from torch.utils.data import DataLoader
 
 
