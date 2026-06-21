@@ -95,3 +95,8 @@ Considered and deferred. The idea of one model per fish family is taxonomically 
 - Deleted legacy files: `src/AModel.py` (TF/Keras) and root `dataset.py`
 - Set up new `src/` structure: `data/`, `detector/`, `classifier/` submodules + `pipeline.py`
 - Refactored `src/data/dataset.py`: pathlib throughout, fixed mismatch check bug, `DatasetSplit` enum with string values, `_parse_yolo_label` returns (N, 5) tensor, `create_my_deep_fish()` accepts Path args
+- Built `src/detector/detector.py`: `FishDetector` wraps YOLO11, exposes `train()` and `detect()` → returns `Detection` (boxes, scores, crops)
+- Created `detector_data.yaml`: single class (`fish`, id=0), points to `dataset/my_deep_fish/`
+- Built `src/classifier/classifier.py`: `FishClassifier(nn.Module)` wraps any timm backbone, exposes `predict()` (PIL Image → class + confidence), `save()`/`load()` via state_dict
+- Full project review passed: structure, imports, dataset, detector, classifier, and YAML all verified correct
+- Created `train_detector.py`: CLI wrapper around `FishDetector.train()`, fine-tunes from `yolo11n.pt` by default
