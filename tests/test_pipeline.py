@@ -1,3 +1,4 @@
+import pytest
 import torch
 from unittest.mock import MagicMock, patch
 from PIL import Image
@@ -78,13 +79,47 @@ def test_from_weights_detect_only(mock_detector_cls, sample_image):
     assert isinstance(result, Detection)
 
 
+@patch("src.pipeline.FishClassifier")
 @patch("src.pipeline.FishDetector")
-def test_from_weights_requires_num_classes_for_classifier(mock_detector_cls):
+def test_from_weights_requires_num_classes_for_classifier(mock_detector_cls, mock_classifier_cls):
     mock_detector_cls.return_value = MagicMock()
+    mock_classifier_cls.load.return_value = MagicMock()
 
-    import pytest
     with pytest.raises(ValueError, match="num_classes"):
         Pipeline.from_weights(
             detector_weights="yolo11n.pt",
             classifier_weights="classifier.pt",
         )
+
+    pipeline = Pipeline.from_weights(
+        detector_weights="yolo11n.pt",
+        classifier_weights="classifier.pt",
+        num_classes=10,
+    )
+    assert pipeline.classifier is not None
+    mock_classifier_cls.load.assert_called_once_with(
+        path="classifier.pt",
+        num_classes=10,
+        backbone="efficientnet_b0",
+    )
+
+
+@patch("src.pipeline.FishClassifier")
+@patch("src.pipeline.FishDetector")
+def test_from_weights_with_classifier(mock_detector_cls, mock_classifier_cls, sample_image):
+    mock_detector = _make_detector_mock([[10.0, 20.0, 100.0, 150.0]], [0.9])
+    mock_detector_cls.return_value = mock_detector
+    mock_classifier = MagicMock()
+    mock_classifier.predict.return_value = (2, 0.95)
+    mock_classifier_cls.load.return_value = mock_classifier
+
+    pipeline = Pipeline.from_weights(
+        detector_weights="yolo11n.pt",
+        classifier_weights="classifier.pt",
+        num_classes=10,
+    )
+
+    assert pipeline.classifier is not None
+    result = pipeline.run(sample_image)
+    assert isinstance(result, Prediction)
+    assert result.classifications[0] == (2, 0.95)

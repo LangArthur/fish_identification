@@ -1,62 +1,58 @@
 #!/usr/bin/env python3
-import torch
-import matplotlib
-import matplotlib.pyplot as plt
-from matplotlib import patches
+import argparse
+from pathlib import Path
 
-from ultralytics import YOLO
-from src.data.dataset import DeepFishDataset, DatasetSplit
-from torch.utils.data import DataLoader
+import cv2
+import numpy as np
+from PIL import Image
+
+from src.classifier.classifier import FishClassifier
+from src.detector.detector import FishDetector, Detection
+from src.pipeline import Pipeline
 
 
-def plot_img(ds, indexes):
-    for i in indexes:
-        img, labels = ds[0]
-        fig, a = plt.subplots(1, 1)
-        a.imshow(torch.permute(img, (1, 2, 0)))
-        for label in labels:
-            x, y, width, height = label[1], label[2], label[3], label[4]
-            print(x, y)
-            rect = patches.Rectangle((x, y), width, height)
-            a.add_patch(rect)
-        plt.show()
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Run the detection & classification pipeline"
+    )
+    parser.add_argument("input", type=Path, help="Path to the input image")
+    parser.add_argument("--id", type=bool, default=False)
+    return parser.parse_args()
+
+
+def draw_detections(img: Image.Image, detection: Detection) -> np.ndarray:
+    frame = cv2.cvtColor(np.array(img), cv2.COLOR_RGB2BGR)
+    for box, score in zip(detection.boxes, detection.scores):
+        x1, y1, x2, y2 = box.int().tolist()
+        cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+        cv2.putText(
+            frame,
+            f"{score:.2f}",
+            (x1, y1 - 6),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.6,
+            (0, 255, 0),
+            2,
+        )
+    return frame
 
 
 def main():
-    # print(torch.cuda.is_available())
+    args = parse_args()
 
-    print(plt.get_backend())
-    train_ds = DeepFishDataset(
-        DatasetType.TRAIN, "dataset/my_deep_fish/labels", "dataset/my_deep_fish/images"
+    img = Image.open(args.input).convert("RGB")
+
+    pipeline = Pipeline.from_weights(
+        detector_weights="runs/detect/train-2/weights/best.pt"
     )
-    test_ds = DeepFishDataset(
-        DatasetType.VALID, "dataset/my_deep_fish/labels", "dataset/my_deep_fish/images"
-    )
+    detection = pipeline.run(img)
 
-    print("dataset size: {}".format(len(train_ds)))
-    img, _ = train_ds[0]
-    print(img.shape)
-
-    train_dataloader = DataLoader(train_ds, batch_size=4, shuffle=True)
-    test_dataloader = DataLoader(test_ds, batch_size=4, shuffle=True)
-
-    train_features, train_labels = next(iter(train_dataloader))
-
-    print(f"Feature batch shape: {train_features.size()}")
-    print(f"Labels batch shape: {train_labels.size()}")
-    img = train_features[0].squeeze()
-    label = train_labels[0]
-    plt.imshow(img, cmap="gray")
-    plt.show()
-    print(f"Label: {label}")
-    # model = YOLO("yolov8n.pt")  # Load YOLOv8 Nano pretrained weights
-    # model.train(
-    #     data="yolo.yaml",  # Path to YAML config
-    #     epochs=5,  # Number of epochs
-    #     imgsz=1920,  # Image size
-    #     batch=16,  # Batch size
-    #     device=0,
-    # )  # GPU device index
+    if isinstance(detection, Detection):
+        print("Detected: {} fishes".format(len(detection.boxes)))
+        frame = draw_detections(img, detection)
+        cv2.imshow("Detections", frame)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
 
 
 if __name__ == "__main__":
