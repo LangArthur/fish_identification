@@ -30,11 +30,15 @@ fish_identification/
 │   │   └── detector.py       # Stage 1: YOLO11 fish detector wrapper
 │   ├── classifier/
 │   │   └── classifier.py     # Stage 2: timm-based species classifier
+│   ├── analysis/
+│   │   ├── stats.py          # DatasetStats dataclass + compute_stats()
+│   │   └── visualize.py      # plot functions (box size, aspect ratio, heatmap, sample grid)
 │   └── pipeline.py           # End-to-end: detector → classifier
 ├── dataset/
 │   ├── Deepfish/             # Original DeepFish dataset (YOLO format)
 │   └── my_deep_fish/         # Reorganized: images/{train,valid}/ + labels/{train,valid}/
 ├── runs/detect/              # YOLO training run outputs
+├── analyze_dataset.py        # CLI: analyze any YOLO-format dataset
 ├── main.py                   # Temporary entry point (to be replaced)
 ├── yolov8n.pt                # Pretrained YOLOv8 Nano weights
 ├── yolo11n.pt                # Pretrained YOLO11 Nano weights
@@ -83,6 +87,30 @@ Considered and deferred. The idea of one model per fish family is taxonomically 
 
 ---
 
+## Dataset Analysis Tooling
+
+Built to evaluate candidate datasets before committing to training. All tools operate on YOLO-format datasets (images + `.txt` label files). Entry point: `analyze_dataset.py --data <path> --split <train|valid|all> --output <dir>`.
+
+### Metrics computed (`src/analysis/stats.py` → `DatasetStats`)
+
+| Metric | What it reveals |
+|---|---|
+| Relative box area (`w × h`) | Core "far vs close" fish bias — the root cause of DeepFish failure |
+| Box aspect ratio (`w / h`) | Orientation diversity; informs anchor tuning |
+| Box center heatmap (`cx, cy`) | Spatial bias (fish always centered / always at edges?) |
+| Boxes per image | Crowding and occlusion level |
+| Negative sample rate | Fraction of images with no fish; affects training balance |
+| Image resolution distribution | Informs `imgsz` training parameter |
+
+### Visualizations (`src/analysis/visualize.py`)
+
+- `plot_box_size_distribution()` — histogram of relative box areas with percentile markers
+- `plot_aspect_ratio_distribution()` — histogram of box w/h ratios
+- `plot_center_heatmap()` — 2D density map of box center positions
+- `plot_sample_grid()` — random sample of N images with YOLO boxes overlaid
+
+---
+
 ## Session Log
 
 ### 2026-06-21
@@ -100,3 +128,11 @@ Considered and deferred. The idea of one model per fish family is taxonomically 
 - Built `src/classifier/classifier.py`: `FishClassifier(nn.Module)` wraps any timm backbone, exposes `predict()` (PIL Image → class + confidence), `save()`/`load()` via state_dict
 - Full project review passed: structure, imports, dataset, detector, classifier, and YAML all verified correct
 - Created `train_detector.py`: CLI wrapper around `FishDetector.train()`, fine-tunes from `yolo11n.pt` by default
+
+### 2026-06-25
+
+- Diagnosed DeepFish training failure: dataset is skewed toward small, distant fish — model learned to ignore large foreground fish
+- Decided to build dataset analysis tooling (`src/analysis/`) to evaluate candidate replacement datasets
+- Defined 6 key metrics: relative box area, aspect ratio, box center heatmap, boxes per image, negative sample rate, resolution distribution
+- Architecture: `stats.py` (compute) + `visualize.py` (plot) + `analyze_dataset.py` (CLI); no report.py
+- No `report.py` — stats and plots are used directly via the CLI or imported
