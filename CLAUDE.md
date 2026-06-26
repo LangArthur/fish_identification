@@ -154,3 +154,4 @@ Built to evaluate candidate datasets before committing to training. All tools op
   - **Step 3 — `analyze_dataset.py`**: CLI tying it together, tested end-to-end
 - `ImageRecord`: missing label file = negative sample (0 boxes); non-existent split returns empty list
 - Reuses `_parse_yolo_label` from `src/data/dataset.py`; tests reuse the `tmp_dataset` conftest fixture
+- Continued: implemented `relative_box_areas()` (metric 1) and `aspect_ratios()` (metric 2) with tests (11 pass in `test_stats.py`); each metric skips negatives. Aspect ratio is **pixel-space** `(w·img_w)/(h·img_h)` so it reflects true box shape (>1 wide / <1 tall), not normalized. Started `analyze_dataset.py` early (before `visualize.py`) to run metrics on real DeepFish (3596 train + 909 valid): `--data --split`, prints text summaries with units (box area as % of image area, aspect ratio dimensionless); plots deferred to `visualize.py`.
