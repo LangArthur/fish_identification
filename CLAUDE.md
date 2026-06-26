@@ -136,3 +136,21 @@ Built to evaluate candidate datasets before committing to training. All tools op
 - Defined 6 key metrics: relative box area, aspect ratio, box center heatmap, boxes per image, negative sample rate, resolution distribution
 - Architecture: `stats.py` (compute) + `visualize.py` (plot) + `analyze_dataset.py` (CLI); no report.py
 - No `report.py` — stats and plots are used directly via the CLI or imported
+
+### 2026-06-26
+
+- Began implementing the analysis tooling. Build approach: **granular and test-driven** — one function at a time, each with its own test, verified before moving on (so each metric is independently testable).
+- Plan, in order:
+  - **Step 1 — `src/analysis/stats.py`** (built incrementally):
+    1. `load_records()` → `list[ImageRecord]` (path, width, height, boxes) — shared loader; walks the dataset once so each metric reads the same raw data. *(done — 6 tests pass)*
+    2. `relative_box_areas(records)` — metric 1 (`w × h`)
+    3. `aspect_ratios(records)` — metric 2 (`w / h`)
+    4. `box_centers(records)` — metric 3 (`cx, cy`)
+    5. `boxes_per_image(records)` — metric 4
+    6. `negative_rate(records)` — metric 5
+    7. `resolutions(records)` — metric 6
+    8. `DatasetStats` + `compute_stats()` — aggregator calling all of the above
+  - **Step 2 — `src/analysis/visualize.py`**: plot functions consuming `DatasetStats`, built plot-by-plot
+  - **Step 3 — `analyze_dataset.py`**: CLI tying it together, tested end-to-end
+- `ImageRecord`: missing label file = negative sample (0 boxes); non-existent split returns empty list
+- Reuses `_parse_yolo_label` from `src/data/dataset.py`; tests reuse the `tmp_dataset` conftest fixture
