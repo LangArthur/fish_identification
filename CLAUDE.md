@@ -107,6 +107,7 @@ Built to evaluate candidate datasets before committing to training. All tools op
 - `plot_box_size_distribution()` — histogram of relative box areas with percentile markers
 - `plot_aspect_ratio_distribution()` — histogram of box w/h ratios
 - `plot_center_heatmap()` — 2D density map of box center positions
+- `plot_boxes_per_image_distribution()` — histogram of box counts per image (crowding, includes 0s)
 - `plot_sample_grid()` — random sample of N images with YOLO boxes overlaid
 
 ---
@@ -152,6 +153,18 @@ Built to evaluate candidate datasets before committing to training. All tools op
     8. `DatasetStats` + `compute_stats()` — aggregator calling all of the above
   - **Step 2 — `src/analysis/visualize.py`**: plot functions consuming `DatasetStats`, built plot-by-plot
   - **Step 3 — `analyze_dataset.py`**: CLI tying it together, tested end-to-end
-- `ImageRecord`: missing label file = negative sample (0 boxes); non-existent split returns empty list
+- `ImageRecord`: missing label file = discarded (unlabeled image); empty label file = negative sample (0 boxes); non-existent split returns empty list
 - Reuses `_parse_yolo_label` from `src/data/dataset.py`; tests reuse the `tmp_dataset` conftest fixture
 - Continued: implemented `relative_box_areas()` (metric 1) and `aspect_ratios()` (metric 2) with tests (11 pass in `test_stats.py`); each metric skips negatives. Aspect ratio is **pixel-space** `(w·img_w)/(h·img_h)` so it reflects true box shape (>1 wide / <1 tall), not normalized. Started `analyze_dataset.py` early (before `visualize.py`) to run metrics on real DeepFish (3596 train + 909 valid): `--data --split`, prints text summaries with units (box area as % of image area, aspect ratio dimensionless); plots deferred to `visualize.py`.
+
+### 2026-07-02
+
+- **Step 1 (`src/analysis/stats.py`) is complete** — all six metrics + `DatasetStats` + `compute_stats()` implemented; 22 tests pass in `test_stats.py`.
+- Fixed a stale log note: missing label file = **discarded** (unlabeled), **empty** label file = negative sample (0 boxes) — matches `load_records()` and its tests.
+- **Backlog — Step 2 (`src/analysis/visualize.py`), to continue next.** Granular / test-driven, one plot at a time; each function returns a matplotlib `Figure` (CLI decides save vs show); `matplotlib.use("Agg")` for headless tests; new `tests/test_visualize.py`. Plot order:
+  1. `plot_box_size_distribution(stats)` — histogram of `relative_box_areas` + p50/p90 percentile vlines (headline far-vs-close plot). Test: returns Figure, one Axes, percentile lines present.
+  2. `plot_aspect_ratio_distribution(stats)` — histogram of `aspect_ratios` + reference line at 1.0 (square). Test: returns Figure, reference line present.
+  3. `plot_center_heatmap(stats)` — 2D density map of `box_centers` over [0,1]×[0,1]. Test: returns Figure; handles empty `box_centers`.
+  4. `plot_boxes_per_image_distribution(stats)` — histogram of `boxes_per_image` (crowding, includes 0s). Test: returns Figure, bin coverage includes negatives.
+  5. `plot_sample_grid(records, n=16)` — random N images with YOLO boxes overlaid (denormalized to pixels; uses `ImageRecord`, not `DatasetStats`). Test: returns Figure; handles fewer-than-N images and negatives.
+- After Step 2: **Step 3** wires the figures into `analyze_dataset.py` (`--output` saves them) to close out the tooling.

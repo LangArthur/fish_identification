@@ -1,5 +1,8 @@
+import matplotlib
 import pytest
 from PIL import Image
+
+matplotlib.use("Agg")  # headless: tests never open a plot window
 
 
 @pytest.fixture
