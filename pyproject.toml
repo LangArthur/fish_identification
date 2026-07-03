@@ -9,6 +9,7 @@ dependencies = [
     "matplotlib>=3.11.0",
     "opencv-python>=4.11.0.86",
     "pillow>=11.3.0",
+    "pyqt6>=6.11.0",
     "scikit-learn>=1.9.0",
     "tensorboard>=2.20.0",
     "timm>=1.0.27",
