@@ -1,11 +1,15 @@
 import shutil
+from collections.abc import Iterator
 from enum import Enum
 from pathlib import Path
 
 import torch
 import torchvision.transforms.functional as F
+import yaml
 from PIL import Image
 from torch.utils.data import Dataset
+
+IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".bmp"}
 
 
 class DatasetSplit(Enum):
@@ -13,24 +17,105 @@ class DatasetSplit(Enum):
     VALID = "valid"
 
 
-def create_my_deep_fish(src: Path, dst: Path) -> None:
-    """Reorganize DeepFish into flat images/{train,valid}/ + labels/{train,valid}/."""
-    for split in ("train", "valid"):
-        (dst / "images" / split).mkdir(parents=True, exist_ok=True)
-        (dst / "labels" / split).mkdir(parents=True, exist_ok=True)
+def _copy_label(src: Path, dst: Path, class_id: int | None) -> None:
+    """Copy a YOLO label file, optionally rewriting every class id to `class_id`.
 
-    for species_dir in src.iterdir():
-        if not species_dir.is_dir() or species_dir.name == "Nagative_samples":
+    A missing or empty source yields an empty label file (a negative sample).
+    """
+    lines: list[str] = []
+    if src.exists():
+        for line in src.read_text().splitlines():
+            parts = line.split()
+            if len(parts) != 5:
+                continue
+            if class_id is not None:
+                parts[0] = str(class_id)
+            lines.append(" ".join(parts))
+    dst.write_text("".join(f"{line}\n" for line in lines))
+
+
+def _iter_roboflow(src: Path) -> Iterator[tuple[str, Path, Path]]:
+    """Walk a Roboflow/Ultralytics layout: <split>/images + <split>/labels."""
+    for split in ("train", "valid", "test"):
+        img_dir = src / split / "images"
+        if not img_dir.is_dir():
+            continue
+        for img in sorted(img_dir.iterdir()):
+            if img.suffix.lower() not in IMAGE_EXTS:
+                continue
+            yield split, img, src / split / "labels" / f"{img.stem}.txt"
+
+
+def _iter_deepfish(src: Path) -> Iterator[tuple[str, Path, Path]]:
+    """Walk a DeepFish layout: <scene>/{train,valid}/*.jpg with sibling *.txt."""
+    for scene in sorted(src.iterdir()):
+        if not scene.is_dir() or scene.name == "Nagative_samples":
             continue
         for split in ("train", "valid"):
-            split_dir = species_dir / split
-            if not split_dir.exists():
+            split_dir = scene / split
+            if not split_dir.is_dir():
                 continue
-            for file in split_dir.iterdir():
-                if file.suffix == ".jpg":
-                    shutil.copy(file, dst / "images" / split / file.name)
-                elif file.suffix == ".txt":
-                    shutil.copy(file, dst / "labels" / split / file.name)
+            for img in sorted(split_dir.iterdir()):
+                if img.suffix.lower() not in IMAGE_EXTS:
+                    continue
+                yield split, img, img.with_suffix(".txt")
+
+
+_WALKERS = {"deepfish": _iter_deepfish, "roboflow": _iter_roboflow}
+
+
+def _read_names(src: Path) -> list[str]:
+    """Best-effort class names from a source data.yaml."""
+    data_yaml = src / "data.yaml"
+    if data_yaml.exists():
+        loaded = yaml.safe_load(data_yaml.read_text()) or {}
+        names = loaded.get("names")
+        if isinstance(names, dict):
+            names = [names[key] for key in sorted(names)]
+        if names:
+            return list(names)
+    return ["fish"]
+
+
+def _write_data_yaml(dst: Path, names: list[str], splits: set[str]) -> None:
+    """Write a data.yaml: dataset path + per-split image dirs + class names."""
+    lines = [f"path: {dst.resolve()}"]
+    for key, split in (("train", "train"), ("val", "valid"), ("test", "test")):
+        if split in splits:
+            lines.append(f"{key}: images/{split}")
+    lines.append(f"nc: {len(names)}")
+    lines.append("names:")
+    lines.extend(f"  {i}: {name}" for i, name in enumerate(names))
+    (dst / "data.yaml").write_text("\n".join(lines) + "\n")
+
+
+def convert_dataset(
+    src: Path,
+    dst: Path,
+    fmt: str,
+    single_class: bool = True,
+) -> None:
+    """Normalize a dataset into the Ultralytics layout + data.yaml.
+
+    Produces images/<split>/ + labels/<split>/ under `dst` and a data.yaml.
+    `fmt` is one of "deepfish" or "roboflow". With `single_class` (default),
+    every box is relabeled to class 0 ("fish").
+    otherwise the source class ids and names are kept.
+    """
+    if fmt not in _WALKERS:
+        raise ValueError(f"unknown format {fmt!r}; expected one of {sorted(_WALKERS)}")
+
+    class_id = 0 if single_class else None
+    splits: set[str] = set()
+    for split, img, label in _WALKERS[fmt](src):
+        (dst / "images" / split).mkdir(parents=True, exist_ok=True)
+        (dst / "labels" / split).mkdir(parents=True, exist_ok=True)
+        shutil.copy(img, dst / "images" / split / img.name)
+        _copy_label(label, dst / "labels" / split / f"{img.stem}.txt", class_id)
+        splits.add(split)
+
+    names = ["fish"] if single_class else _read_names(src)
+    _write_data_yaml(dst, names, splits)
 
 
 def _parse_yolo_label(path: Path) -> torch.Tensor:
