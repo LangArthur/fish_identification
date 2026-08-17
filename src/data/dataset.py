@@ -144,11 +144,15 @@ class DeepFishDataset(Dataset):
         self.label_dir = Path(label_dir) / split.value
         self.transform = transform
 
-        self.stems = sorted(p.stem for p in self.img_dir.iterdir() if p.suffix == ".jpg")
+        self.stems = sorted(
+            p.stem for p in self.img_dir.iterdir() if p.suffix == ".jpg"
+        )
 
         missing = [s for s in self.stems if not (self.label_dir / f"{s}.txt").exists()]
         if missing:
-            raise FileNotFoundError(f"{len(missing)} image(s) have no matching label file")
+            raise FileNotFoundError(
+                f"{len(missing)} image(s) have no matching label file"
+            )
 
     def __len__(self) -> int:
         return len(self.stems)

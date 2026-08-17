@@ -4,15 +4,14 @@ Produces  images/{train,valid[,test]}/  +  labels/{train,valid[,test]}/  +
 data.yaml  under the destination, so any source dataset trains the same way.
 
 Usage:
-    # DeepFish (scene-grouped) -> single-class detector dataset
+    # DeepFish
     uv run convert_dataset.py --src dataset/Deepfish --dst dataset/my_deep_fish --format deepfish
 
     # Roboflow export (already split/images + split/labels)
     uv run convert_dataset.py --src dataset/Fish_Detection_v5 --dst dataset/my_fish_detection --format roboflow
 
-By default every box is collapsed to a single "fish" class (class 0) for
-Stage-1 detector training. Pass --keep-classes to preserve the original
-species classes and names (read from the source data.yaml).
+By default every box is collapsed to a single "fish" class (class 0)
+Pass --keep-classes to preserve the original class
 """
 
 import argparse
