@@ -1,4 +1,4 @@
-path: dataset/my_deep_fish # Path to dataset root directory
+path: dataset/my_dataset # Path to dataset root directory
 train: images/train # Path to training images
 val: images/valid # Path to validation images
 nc: 1 # Number of classes

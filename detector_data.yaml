@@ -1,4 +1,4 @@
-path: dataset/my_deep_fish
+path: dataset/my_dataset
 train: images/train
 val: images/valid
 

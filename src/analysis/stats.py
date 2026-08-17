@@ -20,7 +20,7 @@ class ImageRecord:
 def load_records(data_dir: Path | str, split: str = "all") -> list[ImageRecord]:
     """Walk a YOLO-format dataset once and collect one ImageRecord per image.
 
-    Expects the my_deep_fish layout: images/{train,valid}/ + labels/{train,valid}/.
+    Expects the Ultralytics YOLO layout: images/{train,valid}/ + labels/{train,valid}/.
     An image with no matching label file is discarded (unlabeled). A negative
     sample is an image whose label file exists but is empty (0 boxes).
     """
