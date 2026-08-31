@@ -3,8 +3,8 @@
 Usage:
     uv run analyze_dataset.py --data dataset/my_deep_fish --split all
 
-Prints a text summary for each metric. With --output <dir>, also saves the
-distribution plots (via src/analysis/visualize.py) as PNGs into that directory.
+Prints a text summary for each metric, then opens every distribution plot as a
+ dashboard window. With --output <dir>, also saves that dashboard as dashboard.png in that directory.
 """
 
 import argparse
@@ -15,14 +15,8 @@ from matplotlib.figure import Figure
 
 from collections import Counter
 
-from src.analysis.stats import ImageRecord, DatasetStats, compute_stats, load_records
-from src.analysis.visualize import (
-    plot_aspect_ratio_distribution,
-    plot_box_size_distribution,
-    plot_boxes_per_image_distribution,
-    plot_center_heatmap,
-    plot_sample_grid,
-)
+from src.analysis.stats import DatasetStats, compute_stats, load_records
+from src.analysis.visualize import plot_dashboard
 
 
 def _summarize(name: str, values: list[float]) -> None:
@@ -71,40 +65,25 @@ def _print_report(stats: DatasetStats) -> None:
         print("  (no images)")
 
 
-def _build_figures(
-    stats: DatasetStats, records: list[ImageRecord]
-) -> dict[str, Figure]:
-    """Render every distribution plot from visualize.py into a named dict."""
-    return {
-        "box_size_distribution": plot_box_size_distribution(stats),
-        "aspect_ratio_distribution": plot_aspect_ratio_distribution(stats),
-        "center_heatmap": plot_center_heatmap(stats),
-        "boxes_per_image_distribution": plot_boxes_per_image_distribution(stats),
-        "sample_grid": plot_sample_grid(records),
-    }
-
-
-def _save_figures(figures: dict[str, Figure], output_dir: Path) -> None:
-    """Save each figure as a PNG into `output_dir`."""
+def _save_figure(fig: Figure, output_dir: Path) -> None:
+    """Save the dashboard as a single PNG into `output_dir`."""
     output_dir.mkdir(parents=True, exist_ok=True)
-    for name, fig in figures.items():
-        path = output_dir / f"{name}.png"
-        fig.savefig(path, dpi=120, bbox_inches="tight")
-        print(f"  saved {path}")
+    path = output_dir / "dashboard.png"
+    fig.savefig(path, dpi=120)
+    print(f"  saved {path}")
 
 
-def _show_figures(figures: dict[str, Figure]) -> None:
-    """Open every figure in an interactive window and block until closed.
+def _show_figure(fig: Figure) -> None:
+    """Open the dashboard in one interactive window and block until closed.
 
     The plots are built with the bare Figure() constructor (no pyplot state), so
-    each one is re-homed onto a fresh pyplot-managed window before plt.show().
+    the figure is re-homed onto a fresh pyplot-managed window before plt.show().
     """
     import matplotlib.pyplot as plt
 
-    for fig in figures.values():
-        manager = plt.figure().canvas.manager
-        manager.canvas.figure = fig
-        fig.set_canvas(manager.canvas)
+    manager = plt.figure().canvas.manager
+    manager.canvas.figure = fig
+    fig.set_canvas(manager.canvas)
     plt.show()
 
 
@@ -141,15 +120,15 @@ def main() -> None:
 
     _print_report(stats)
 
-    figures = _build_figures(stats, records)
+    fig = plot_dashboard(stats, records)
 
     if args.output is not None:
         print(f"\nSaving plots to {args.output}")
         print("-" * (16 + len(str(args.output))))
-        _save_figures(figures, args.output)
+        _save_figure(fig, args.output)
 
     if not args.no_show:
-        _show_figures(figures)
+        _show_figure(fig)
 
 
 if __name__ == "__main__":

@@ -6,6 +6,7 @@ from src.analysis.visualize import (
     plot_box_size_distribution,
     plot_boxes_per_image_distribution,
     plot_center_heatmap,
+    plot_dashboard,
     plot_sample_grid,
 )
 
@@ -127,4 +128,34 @@ def test_plot_sample_grid_handles_negatives(tmp_dataset):
 
 def test_plot_sample_grid_handles_empty():
     fig = plot_sample_grid([], n=16)
+    assert isinstance(fig, Figure)
+
+
+def test_plot_dashboard_returns_single_figure(tmp_dataset):
+    records = load_records(tmp_dataset, split="all")  # 4 images, 1 box each
+    stats = _stats(
+        relative_box_areas=[0.01, 0.2, 0.5],
+        aspect_ratios=[0.5, 1.0, 2.0],
+        box_centers=[(0.5, 0.5), (0.2, 0.8)],
+        boxes_per_image=[0, 1, 3],
+    )
+    fig = plot_dashboard(stats, records, n_samples=4)
+    assert isinstance(fig, Figure)
+    # the four stat plots each have a title; sample cells are untitled and off
+    titles = {ax.get_title() for ax in fig.axes if ax.get_title()}
+    assert {
+        "Box size distribution",
+        "Aspect ratio distribution",
+        "Box center heatmap",
+        "Boxes per image distribution",
+    } <= titles
+    # sample grid still drew its boxes inside the combined figure (count only the
+    # image cells, since histogram bars on the stat axes are patches too)
+    sample_axes = [ax for ax in fig.axes if ax.images]
+    assert sum(len(ax.patches) for ax in sample_axes) == 4
+
+
+def test_plot_dashboard_handles_empty_records():
+    # no images and empty stats should still yield a valid figure
+    fig = plot_dashboard(_stats(), [])
     assert isinstance(fig, Figure)
