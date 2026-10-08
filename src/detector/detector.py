@@ -35,8 +35,17 @@ class FishDetector:
             **kwargs,
         )
 
-    def detect(self, image: Image.Image, conf: float = 0.25) -> Detection:
-        results = self.model(image, conf=conf)[0]
+    def detect(
+        self,
+        image: Image.Image,
+        conf: float = 0.25,
+        imgsz: int = 640,
+        max_det: int = 300,
+        iou: float = 0.7,
+    ) -> Detection:
+        results = self.model(
+            image, conf=conf, imgsz=imgsz, max_det=max_det, iou=iou, verbose=False
+        )[0]
         boxes = results.boxes.xyxy.cpu()
         scores = results.boxes.conf.cpu()
         crops = [image.crop(box.tolist()) for box in boxes]

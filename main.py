@@ -6,8 +6,7 @@ import cv2
 import numpy as np
 from PIL import Image
 
-from src.classifier.classifier import FishClassifier
-from src.detector.detector import FishDetector, Detection
+from src.detector.detector import Detection
 from src.pipeline import Pipeline
 
 
@@ -16,7 +15,20 @@ def parse_args() -> argparse.Namespace:
         description="Run the detection & classification pipeline"
     )
     parser.add_argument("input", type=Path, help="Path to the input image")
-    parser.add_argument("--id", type=bool, default=False)
+    parser.add_argument("--id", action="store_true", help="Enable fish identification")
+    parser.add_argument(
+        "--conf", type=float, default=0.25, help="Detection confidence threshold"
+    )
+    parser.add_argument(
+        "--imgsz",
+        type=int,
+        default=640,
+        help="Inference resolution; raise it for small or crowded fish",
+    )
+    parser.add_argument(
+        "--max-det", type=int, default=300, help="Cap on detections per image"
+    )
+    parser.add_argument("--iou", type=float, default=0.7, help="NMS IoU threshold")
     return parser.parse_args()
 
 
@@ -43,12 +55,18 @@ def main():
     img = Image.open(args.input).convert("RGB")
 
     pipeline = Pipeline.from_weights(
-        detector_weights="runs/detect/train-2/weights/best.pt"
+        detector_weights="runs/detect/train/weights/best.pt"
     )
-    detection = pipeline.run(img)
+    detection = pipeline.run(
+        img,
+        conf=args.conf,
+        imgsz=args.imgsz,
+        max_det=args.max_det,
+        iou=args.iou,
+    )
 
     if isinstance(detection, Detection):
-        print("Detected: {} fishes".format(len(detection.boxes)))
+        print(f"Detected: {len(detection.boxes)} fishes")
         frame = draw_detections(img, detection)
         cv2.imshow("Detections", frame)
         cv2.waitKey(0)

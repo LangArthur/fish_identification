@@ -43,8 +43,17 @@ class Pipeline:
             )
         return cls(detector=detector, classifier=classifier)
 
-    def run(self, image: Image.Image, conf: float = 0.25) -> Detection | Prediction:
-        detection = self.detector.detect(image, conf=conf)
+    def run(
+        self,
+        image: Image.Image,
+        conf: float = 0.25,
+        imgsz: int = 640,
+        max_det: int = 300,
+        iou: float = 0.7,
+    ) -> Detection | Prediction:
+        detection = self.detector.detect(
+            image, conf=conf, imgsz=imgsz, max_det=max_det, iou=iou
+        )
         if self.classifier is None:
             return detection
         classifications = [self.classifier.predict(crop) for crop in detection.crops]
