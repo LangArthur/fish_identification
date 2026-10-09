@@ -50,10 +50,23 @@ class Pipeline:
         imgsz: int = 640,
         max_det: int = 300,
         iou: float = 0.7,
+        tile: int | None = None,
+        overlap: float = 0.25,
     ) -> Detection | Prediction:
-        detection = self.detector.detect(
-            image, conf=conf, imgsz=imgsz, max_det=max_det, iou=iou
-        )
+        if tile is not None:
+            detection = self.detector.detect_tiled(
+                image,
+                tile=tile,
+                overlap=overlap,
+                imgsz=imgsz,
+                conf=conf,
+                iou=iou,
+                max_det=max_det,
+            )
+        else:
+            detection = self.detector.detect(
+                image, conf=conf, imgsz=imgsz, max_det=max_det, iou=iou
+            )
         if self.classifier is None:
             return detection
         classifications = [self.classifier.predict(crop) for crop in detection.crops]

@@ -123,3 +123,32 @@ def test_from_weights_with_classifier(mock_detector_cls, mock_classifier_cls, sa
     result = pipeline.run(sample_image)
     assert isinstance(result, Prediction)
     assert result.classifications[0] == (2, 0.95)
+
+
+def test_run_uses_tiled_detection_when_tile_given(sample_image):
+    detector = MagicMock()
+    detector.detect_tiled.return_value = Detection(
+        boxes=torch.zeros((0, 4)), scores=torch.zeros((0,))
+    )
+    pipeline = Pipeline(detector=detector)
+
+    pipeline.run(sample_image, tile=512, overlap=0.3, imgsz=1024)
+
+    detector.detect.assert_not_called()
+    kwargs = detector.detect_tiled.call_args.kwargs
+    assert kwargs["tile"] == 512
+    assert kwargs["overlap"] == 0.3
+    assert kwargs["imgsz"] == 1024
+
+
+def test_run_uses_plain_detection_by_default(sample_image):
+    detector = MagicMock()
+    detector.detect.return_value = Detection(
+        boxes=torch.zeros((0, 4)), scores=torch.zeros((0,))
+    )
+    pipeline = Pipeline(detector=detector)
+
+    pipeline.run(sample_image)
+
+    detector.detect.assert_called_once()
+    detector.detect_tiled.assert_not_called()
